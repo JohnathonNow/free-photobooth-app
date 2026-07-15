@@ -151,6 +151,41 @@
         const printFrame = document.getElementById('print-frame');
         const filterSelect = document.getElementById('filter-select');
 
+        // Parse query parameters
+        const urlParams = new URLSearchParams(window.location.search);
+
+        if (urlParams.has('action')) {
+            const actionVal = urlParams.get('action');
+            if (Array.from(actionSelect.options).some(opt => opt.value === actionVal)) {
+                actionSelect.value = actionVal;
+            }
+        }
+
+        if (urlParams.has('timer')) {
+            const timerVal = urlParams.get('timer');
+            if (Array.from(timerSelect.options).some(opt => opt.value === timerVal)) {
+                timerSelect.value = timerVal;
+            }
+        }
+
+        if (urlParams.has('filter')) {
+            const filterVal = urlParams.get('filter');
+            if (Array.from(filterSelect.options).some(opt => opt.value === filterVal)) {
+                filterSelect.value = filterVal;
+                video.style.filter = filterVal;
+            }
+        }
+
+        function updateURL() {
+            const currentParams = new URLSearchParams(window.location.search);
+            currentParams.set('action', actionSelect.value);
+            currentParams.set('timer', timerSelect.value);
+            currentParams.set('filter', filterSelect.value);
+
+            const newUrl = `${window.location.pathname}?${currentParams.toString()}`;
+            window.history.replaceState({}, '', newUrl);
+        }
+
         settingsBtn.addEventListener('click', () => {
             if (configMenu.style.display === 'flex') {
                 configMenu.style.display = 'none';
@@ -164,8 +199,11 @@
             settingsBtn.style.display = 'none';
         });
 
+        actionSelect.addEventListener('change', updateURL);
+        timerSelect.addEventListener('change', updateURL);
         filterSelect.addEventListener('change', () => {
             video.style.filter = filterSelect.value;
+            updateURL();
         });
 
         // Request webcam access
