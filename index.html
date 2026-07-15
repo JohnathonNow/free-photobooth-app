@@ -62,7 +62,7 @@
             gap: 10px;
             margin-bottom: 20px;
         }
-        #config-menu {
+        .menu-panel {
             display: none;
             flex-direction: column;
             gap: 10px;
@@ -79,6 +79,13 @@
             gap: 10px;
             font-size: 18px;
         }
+        #overlay-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            z-index: 5;
+        }
         select {
             padding: 15px;
             font-size: 18px;
@@ -93,14 +100,70 @@
 
     <div id="video-container">
         <video id="video" width="640" height="480" autoplay playsinline></video>
+        <canvas id="overlay-canvas" width="640" height="480"></canvas>
         <div id="countdown"></div>
     </div>
 
     <div id="controls">
         <button id="settings-btn">Settings</button>
+        <button id="overlay-btn">Overlay Editor</button>
         <button id="snap-btn">Take Photo</button>
     </div>
-    <div id="config-menu">
+
+    <div id="overlay-menu" class="menu-panel">
+        <div class="config-item">
+            <label for="overlay-frame">Frame Image:</label>
+            <input type="file" id="overlay-frame" accept="image/*">
+        </div>
+        <div class="config-item">
+            <label for="overlay-text">Text:</label>
+            <input type="text" id="overlay-text" placeholder="Enter text">
+        </div>
+        <div class="config-item">
+            <label for="overlay-font">Font:</label>
+            <select id="overlay-font">
+                <option value="sans-serif">Sans-Serif</option>
+                <option value="serif">Serif</option>
+                <option value="monospace">Monospace</option>
+                <option value="Impact">Impact</option>
+                <option value="Comic Sans MS">Comic Sans</option>
+            </select>
+        </div>
+        <div class="config-item">
+            <label for="overlay-style">Style:</label>
+            <select id="overlay-style">
+                <option value="normal">Normal</option>
+                <option value="bold">Bold</option>
+                <option value="italic">Italic</option>
+                <option value="italic bold">Bold Italic</option>
+            </select>
+        </div>
+        <div class="config-item">
+            <label for="overlay-size">Size:</label>
+            <input type="number" id="overlay-size" value="48" min="10" max="200">
+        </div>
+        <div class="config-item">
+            <label for="overlay-fill">Fill Color:</label>
+            <input type="color" id="overlay-fill" value="#ffffff">
+        </div>
+        <div class="config-item">
+            <label for="overlay-outline">Outline Color:</label>
+            <input type="color" id="overlay-outline" value="#000000">
+        </div>
+        <div class="config-item">
+            <label for="overlay-x">X Position:</label>
+            <input type="number" id="overlay-x" value="320">
+        </div>
+        <div class="config-item">
+            <label for="overlay-y">Y Position:</label>
+            <input type="number" id="overlay-y" value="400">
+        </div>
+        <div class="config-item">
+            <button id="hide-overlay-btn">Hide Overlay Editor</button>
+        </div>
+    </div>
+
+    <div id="config-menu" class="menu-panel">
         <div class="config-item">
             <label for="action-select">Action:</label>
             <select id="action-select">
@@ -151,7 +214,26 @@
         const printFrame = document.getElementById('print-frame');
         const filterSelect = document.getElementById('filter-select');
 
+        // Overlay Editor elements
+        const overlayBtn = document.getElementById('overlay-btn');
+        const hideOverlayBtn = document.getElementById('hide-overlay-btn');
+        const overlayMenu = document.getElementById('overlay-menu');
+        const overlayCanvas = document.getElementById('overlay-canvas');
+        const overlayContext = overlayCanvas.getContext('2d');
+        const overlayFrame = document.getElementById('overlay-frame');
+        const overlayText = document.getElementById('overlay-text');
+        const overlayFont = document.getElementById('overlay-font');
+        const overlayStyle = document.getElementById('overlay-style');
+        const overlaySize = document.getElementById('overlay-size');
+        const overlayFill = document.getElementById('overlay-fill');
+        const overlayOutline = document.getElementById('overlay-outline');
+        const overlayX = document.getElementById('overlay-x');
+        const overlayY = document.getElementById('overlay-y');
+
+        let frameImage = null;
+
         settingsBtn.addEventListener('click', () => {
+            overlayMenu.style.display = 'none';
             if (configMenu.style.display === 'flex') {
                 configMenu.style.display = 'none';
             } else {
@@ -161,7 +243,70 @@
 
         hideBtn.addEventListener('click', () => {
             configMenu.style.display = 'none';
-            settingsBtn.style.display = 'none';
+        });
+
+        overlayBtn.addEventListener('click', () => {
+            configMenu.style.display = 'none';
+            if (overlayMenu.style.display === 'flex') {
+                overlayMenu.style.display = 'none';
+            } else {
+                overlayMenu.style.display = 'flex';
+            }
+        });
+
+        hideOverlayBtn.addEventListener('click', () => {
+            overlayMenu.style.display = 'none';
+        });
+
+        function updateOverlay() {
+            overlayContext.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+
+            if (frameImage) {
+                overlayContext.drawImage(frameImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
+            }
+
+            const text = overlayText.value;
+            if (text) {
+                const style = overlayStyle.value === 'normal' ? '' : overlayStyle.value;
+                const size = overlaySize.value + 'px';
+                const font = overlayFont.value;
+
+                overlayContext.font = `${style} ${size} ${font}`.trim();
+                overlayContext.textAlign = 'center';
+
+                const x = parseInt(overlayX.value, 10);
+                const y = parseInt(overlayY.value, 10);
+
+                overlayContext.fillStyle = overlayFill.value;
+                overlayContext.fillText(text, x, y);
+
+                overlayContext.lineWidth = 2;
+                overlayContext.strokeStyle = overlayOutline.value;
+                overlayContext.strokeText(text, x, y);
+            }
+        }
+
+        overlayFrame.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        frameImage = img;
+                        updateOverlay();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                frameImage = null;
+                updateOverlay();
+            }
+        });
+
+        [overlayText, overlayFont, overlayStyle, overlaySize, overlayFill, overlayOutline, overlayX, overlayY].forEach(el => {
+            el.addEventListener('input', updateOverlay);
         });
 
         filterSelect.addEventListener('change', () => {
@@ -205,6 +350,10 @@
             // Draw video frame to canvas
             context.filter = filterSelect.value;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            context.filter = 'none'; // reset filter before drawing overlay
+
+            // Draw overlay to main canvas
+            context.drawImage(overlayCanvas, 0, 0, canvas.width, canvas.height);
 
             // Get image data URL
             const dataUrl = canvas.toDataURL('image/png');
