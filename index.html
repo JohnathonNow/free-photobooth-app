@@ -62,6 +62,23 @@
             gap: 10px;
             margin-bottom: 20px;
         }
+        #config-menu {
+            display: none;
+            flex-direction: column;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .config-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            font-size: 18px;
+        }
         select {
             padding: 15px;
             font-size: 18px;
@@ -80,15 +97,39 @@
     </div>
 
     <div id="controls">
-        <select id="filter-select">
-            <option value="none">Normal</option>
-            <option value="grayscale(100%)">Grayscale</option>
-            <option value="sepia(100%)">Sepia</option>
-            <option value="invert(100%)">Invert</option>
-            <option value="hue-rotate(90deg)">Hue Rotate</option>
-            <option value="contrast(200%)">High Contrast</option>
-        </select>
+        <button id="settings-btn">Settings</button>
         <button id="snap-btn">Take Photo</button>
+    </div>
+    <div id="config-menu">
+        <div class="config-item">
+            <label for="action-select">Action:</label>
+            <select id="action-select">
+                <option value="save-print">Save & Print</option>
+                <option value="print-only">Print Only</option>
+                <option value="save-only">Save Only</option>
+            </select>
+        </div>
+        <div class="config-item">
+            <label for="timer-select">Timer:</label>
+            <select id="timer-select">
+                <option value="0">Instant</option>
+                <option value="1">1 second</option>
+                <option value="3">3 seconds</option>
+                <option value="5" selected>5 seconds</option>
+                <option value="10">10 seconds</option>
+            </select>
+        </div>
+        <div class="config-item">
+            <label for="filter-select">Filter:</label>
+            <select id="filter-select">
+                <option value="none">Normal</option>
+                <option value="grayscale(100%)">Grayscale</option>
+                <option value="sepia(100%)">Sepia</option>
+                <option value="invert(100%)">Invert</option>
+                <option value="hue-rotate(90deg)">Hue Rotate</option>
+                <option value="contrast(200%)">High Contrast</option>
+            </select>
+        </div>
     </div>
     <canvas id="canvas" width="640" height="480"></canvas>
     <iframe id="print-frame" name="print-frame"></iframe>
@@ -96,11 +137,23 @@
     <script>
         const video = document.getElementById('video');
         const snapBtn = document.getElementById('snap-btn');
+        const settingsBtn = document.getElementById('settings-btn');
+        const configMenu = document.getElementById('config-menu');
+        const actionSelect = document.getElementById('action-select');
+        const timerSelect = document.getElementById('timer-select');
         const countdownDisplay = document.getElementById('countdown');
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const printFrame = document.getElementById('print-frame');
         const filterSelect = document.getElementById('filter-select');
+
+        settingsBtn.addEventListener('click', () => {
+            if (configMenu.style.display === 'flex') {
+                configMenu.style.display = 'none';
+            } else {
+                configMenu.style.display = 'flex';
+            }
+        });
 
         filterSelect.addEventListener('change', () => {
             video.style.filter = filterSelect.value;
@@ -118,20 +171,25 @@
 
         snapBtn.addEventListener('click', () => {
             snapBtn.disabled = true;
-            let counter = 5;
-            countdownDisplay.style.display = 'block';
-            countdownDisplay.innerText = counter;
+            let counter = parseInt(timerSelect.value, 10);
+            
+            if (counter === 0) {
+                takePhoto();
+            } else {
+                countdownDisplay.style.display = 'block';
+                countdownDisplay.innerText = counter;
 
-            const interval = setInterval(() => {
-                counter--;
-                if (counter > 0) {
-                    countdownDisplay.innerText = counter;
-                } else {
-                    clearInterval(interval);
-                    countdownDisplay.style.display = 'none';
-                    takePhoto();
-                }
-            }, 1000);
+                const interval = setInterval(() => {
+                    counter--;
+                    if (counter > 0) {
+                        countdownDisplay.innerText = counter;
+                    } else {
+                        clearInterval(interval);
+                        countdownDisplay.style.display = 'none';
+                        takePhoto();
+                    }
+                }, 1000);
+            }
         });
 
         function takePhoto() {
@@ -141,17 +199,22 @@
 
             // Get image data URL
             const dataUrl = canvas.toDataURL('image/png');
+            const action = actionSelect.value;
 
             // 1. Save the image
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = `photo-${Date.now()}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            if (action === 'save-print' || action === 'save-only') {
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = `photo-${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
 
             // 2. Print the image
-            printImage(dataUrl);
+            if (action === 'save-print' || action === 'print-only') {
+                printImage(dataUrl);
+            }
 
             // Re-enable button
             snapBtn.disabled = false;
