@@ -16,12 +16,27 @@
         #video-container {
             position: relative;
             margin-bottom: 20px;
-        }
-        video {
-            border: 5px solid #fff;
+            border: 5px solid #ffffff;
             border-radius: 8px;
             box-shadow: 0 4px 8px rgba(0,0,0,0.2);
             background-color: #000;
+            overflow: hidden;
+            width: 640px;
+            height: 480px;
+        }
+        video {
+            display: block;
+        }
+        #preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            object-fit: contain;
+            display: none;
+            z-index: 5;
         }
         #countdown {
             position: absolute;
@@ -57,14 +72,45 @@
         #print-frame {
             display: none;
         }
+        #menu {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .menu-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
     </style>
 </head>
 <body>
 
     <h1>Photo Booth</h1>
 
+    <div id="menu">
+        <div class="menu-item">
+            <label for="border-width">Border Width:</label>
+            <input type="number" id="border-width" value="5" min="0" max="50">
+        </div>
+        <div class="menu-item">
+            <label for="border-color">Border Color:</label>
+            <input type="color" id="border-color" value="#ffffff">
+        </div>
+        <div class="menu-item">
+            <label for="overlay-image">Overlay Image:</label>
+            <input type="file" id="overlay-image" accept="image/*">
+        </div>
+    </div>
+
     <div id="video-container">
         <video id="video" width="640" height="480" autoplay playsinline></video>
+        <img id="preview-overlay" alt="Overlay Preview">
         <div id="countdown"></div>
     </div>
 
@@ -79,6 +125,46 @@
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const printFrame = document.getElementById('print-frame');
+
+        const videoContainer = document.getElementById('video-container');
+        const previewOverlay = document.getElementById('preview-overlay');
+        const borderWidthInput = document.getElementById('border-width');
+        const borderColorInput = document.getElementById('border-color');
+        const overlayImageInput = document.getElementById('overlay-image');
+
+        // Update preview based on menu inputs
+        function updatePreview() {
+            const width = borderWidthInput.value;
+            const color = borderColorInput.value;
+            videoContainer.style.border = `${width}px solid ${color}`;
+        }
+
+        borderWidthInput.addEventListener('input', updatePreview);
+        borderColorInput.addEventListener('input', updatePreview);
+
+        let overlayImageObj = null;
+
+        overlayImageInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    previewOverlay.src = e.target.result;
+                    previewOverlay.style.display = 'block';
+
+                    overlayImageObj = new Image();
+                    overlayImageObj.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                previewOverlay.src = '';
+                previewOverlay.style.display = 'none';
+                overlayImageObj = null;
+            }
+        });
+
+        // Initialize preview
+        updatePreview();
 
         // Request webcam access
         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -111,6 +197,19 @@
         function takePhoto() {
             // Draw video frame to canvas
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Draw overlay image if it exists
+            if (overlayImageObj) {
+                context.drawImage(overlayImageObj, 0, 0, canvas.width, canvas.height);
+            }
+
+            // Draw border
+            const width = parseInt(borderWidthInput.value, 10);
+            if (width > 0) {
+                context.lineWidth = width * 2; // Multiply by 2 because stroke is centered on the edge
+                context.strokeStyle = borderColorInput.value;
+                context.strokeRect(0, 0, canvas.width, canvas.height);
+            }
 
             // Get image data URL
             const dataUrl = canvas.toDataURL('image/png');
