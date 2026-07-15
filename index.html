@@ -130,6 +130,9 @@
                 <option value="contrast(200%)">High Contrast</option>
             </select>
         </div>
+        <div class="config-item">
+            <button id="hide-btn">Hide Settings</button>
+        </div>
     </div>
     <canvas id="canvas" width="640" height="480"></canvas>
     <iframe id="print-frame" name="print-frame"></iframe>
@@ -138,6 +141,7 @@
         const video = document.getElementById('video');
         const snapBtn = document.getElementById('snap-btn');
         const settingsBtn = document.getElementById('settings-btn');
+        const hideBtn = document.getElementById('hide-btn');
         const configMenu = document.getElementById('config-menu');
         const actionSelect = document.getElementById('action-select');
         const timerSelect = document.getElementById('timer-select');
@@ -153,6 +157,11 @@
             } else {
                 configMenu.style.display = 'flex';
             }
+        });
+
+        hideBtn.addEventListener('click', () => {
+            configMenu.style.display = 'none';
+            settingsBtn.style.display = 'none';
         });
 
         filterSelect.addEventListener('change', () => {
