@@ -57,6 +57,18 @@
         #print-frame {
             display: none;
         }
+        #config-menu {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        }
+        #config-menu select {
+            padding: 10px;
+            font-size: 16px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
@@ -66,6 +78,21 @@
     <div id="video-container">
         <video id="video" width="640" height="480" autoplay playsinline></video>
         <div id="countdown"></div>
+    </div>
+
+    <div id="config-menu">
+        <select id="action-select">
+            <option value="save-print" selected>Save + Print</option>
+            <option value="print-only">Print Only</option>
+            <option value="save-only">Save Only</option>
+        </select>
+        <select id="delay-select">
+            <option value="0">Instant</option>
+            <option value="1">1 Second</option>
+            <option value="3">3 Seconds</option>
+            <option value="5" selected>5 Seconds</option>
+            <option value="10">10 Seconds</option>
+        </select>
     </div>
 
     <button id="snap-btn">Take Photo</button>
@@ -79,6 +106,8 @@
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const printFrame = document.getElementById('print-frame');
+        const actionSelect = document.getElementById('action-select');
+        const delaySelect = document.getElementById('delay-select');
 
         // Request webcam access
         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -92,20 +121,25 @@
 
         snapBtn.addEventListener('click', () => {
             snapBtn.disabled = true;
-            let counter = 5;
-            countdownDisplay.style.display = 'block';
-            countdownDisplay.innerText = counter;
+            let counter = parseInt(delaySelect.value, 10);
 
-            const interval = setInterval(() => {
-                counter--;
-                if (counter > 0) {
-                    countdownDisplay.innerText = counter;
-                } else {
-                    clearInterval(interval);
-                    countdownDisplay.style.display = 'none';
-                    takePhoto();
-                }
-            }, 1000);
+            if (counter === 0) {
+                takePhoto();
+            } else {
+                countdownDisplay.style.display = 'block';
+                countdownDisplay.innerText = counter;
+
+                const interval = setInterval(() => {
+                    counter--;
+                    if (counter > 0) {
+                        countdownDisplay.innerText = counter;
+                    } else {
+                        clearInterval(interval);
+                        countdownDisplay.style.display = 'none';
+                        takePhoto();
+                    }
+                }, 1000);
+            }
         });
 
         function takePhoto() {
@@ -115,16 +149,22 @@
             // Get image data URL
             const dataUrl = canvas.toDataURL('image/png');
 
+            const action = actionSelect.value;
+
             // 1. Save the image
-            const a = document.createElement('a');
-            a.href = dataUrl;
-            a.download = `photo-${Date.now()}.png`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
+            if (action === 'save-print' || action === 'save-only') {
+                const a = document.createElement('a');
+                a.href = dataUrl;
+                a.download = `photo-${Date.now()}.png`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            }
 
             // 2. Print the image
-            printImage(dataUrl);
+            if (action === 'save-print' || action === 'print-only') {
+                printImage(dataUrl);
+            }
 
             // Re-enable button
             snapBtn.disabled = false;
