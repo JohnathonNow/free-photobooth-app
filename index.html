@@ -57,6 +57,17 @@
         #print-frame {
             display: none;
         }
+        #controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        select {
+            padding: 15px;
+            font-size: 18px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
     </style>
 </head>
 <body>
@@ -68,7 +79,17 @@
         <div id="countdown"></div>
     </div>
 
-    <button id="snap-btn">Take Photo</button>
+    <div id="controls">
+        <select id="filter-select">
+            <option value="none">Normal</option>
+            <option value="grayscale(100%)">Grayscale</option>
+            <option value="sepia(100%)">Sepia</option>
+            <option value="invert(100%)">Invert</option>
+            <option value="hue-rotate(90deg)">Hue Rotate</option>
+            <option value="contrast(200%)">High Contrast</option>
+        </select>
+        <button id="snap-btn">Take Photo</button>
+    </div>
     <canvas id="canvas" width="640" height="480"></canvas>
     <iframe id="print-frame" name="print-frame"></iframe>
 
@@ -79,6 +100,11 @@
         const canvas = document.getElementById('canvas');
         const context = canvas.getContext('2d');
         const printFrame = document.getElementById('print-frame');
+        const filterSelect = document.getElementById('filter-select');
+
+        filterSelect.addEventListener('change', () => {
+            video.style.filter = filterSelect.value;
+        });
 
         // Request webcam access
         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -110,6 +136,7 @@
 
         function takePhoto() {
             // Draw video frame to canvas
+            context.filter = filterSelect.value;
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
 
             // Get image data URL
