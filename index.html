@@ -145,6 +145,12 @@
 
     <div id="config-menu" class="menu-panel">
         <div class="config-item">
+            <label for="camera-select">Camera:</label>
+            <select id="camera-select">
+                <option value="">Default</option>
+            </select>
+        </div>
+        <div class="config-item">
             <label for="action-select">Action:</label>
             <select id="action-select">
                 <option value="save-print">Save & Print</option>
@@ -193,6 +199,7 @@
         const settingsBtn = document.getElementById('settings-btn');
         const hideBtn = document.getElementById('hide-btn');
         const configMenu = document.getElementById('config-menu');
+        const cameraSelect = document.getElementById('camera-select');
         const actionSelect = document.getElementById('action-select');
         const timerSelect = document.getElementById('timer-select');
         const countdownDisplay = document.getElementById('countdown');
@@ -221,6 +228,11 @@
         let frameImage = null;
         // Parse query parameters
         const urlParams = new URLSearchParams(window.location.search);
+
+        if (urlParams.has('camera')) {
+            const cameraVal = urlParams.get('camera');
+            cameraSelect.value = cameraVal; // Value will be checked when options are populated
+        }
 
         if (urlParams.has('action')) {
             const actionVal = urlParams.get('action');
@@ -356,6 +368,11 @@
 
         function updateURL() {
             const currentParams = new URLSearchParams(window.location.search);
+            if (cameraSelect.value) {
+                currentParams.set('camera', cameraSelect.value);
+            } else {
+                currentParams.delete('camera');
+            }
             currentParams.set('action', actionSelect.value);
             currentParams.set('timer', timerSelect.value);
             currentParams.set('filter', filterSelect.value);
@@ -516,15 +533,67 @@
             updateURL();
         });
 
-        // Request webcam access
-        navigator.mediaDevices.getUserMedia({ video: true, audio: false })
-            .then(stream => {
-                video.srcObject = stream;
-            })
-            .catch(err => {
-                console.error("Error accessing webcam:", err);
-                alert("Could not access the webcam.");
+        let currentStream = null;
+
+        function populateCameraList(selectedDeviceId) {
+            navigator.mediaDevices.enumerateDevices().then(devices => {
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+
+                // Clear existing options except "Default" if any
+                cameraSelect.innerHTML = '<option value="">Default</option>';
+
+                videoDevices.forEach(device => {
+                    const option = document.createElement('option');
+                    option.value = device.deviceId;
+                    option.text = device.label || `Camera ${cameraSelect.length}`;
+                    cameraSelect.appendChild(option);
+                });
+
+                // Set selected camera to the one we just started
+                if (selectedDeviceId && Array.from(cameraSelect.options).some(opt => opt.value === selectedDeviceId)) {
+                    cameraSelect.value = selectedDeviceId;
+                }
+            }).catch(err => {
+                console.error("Error enumerating devices:", err);
             });
+        }
+
+        function startCamera(deviceId = '') {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+            }
+
+            const constraints = {
+                video: deviceId ? { deviceId: { exact: deviceId } } : true,
+                audio: false
+            };
+
+            navigator.mediaDevices.getUserMedia(constraints)
+                .then(stream => {
+                    currentStream = stream;
+                    video.srcObject = stream;
+                    // If we asked for a specific device, or we got a device, use its id
+                    const activeDeviceId = stream.getVideoTracks()[0].getSettings().deviceId;
+                    populateCameraList(deviceId || activeDeviceId); // Refresh list to get labels after permission
+                })
+                .catch(err => {
+                    console.error("Error accessing webcam:", err);
+                    if (deviceId) {
+                        console.warn("Falling back to default camera");
+                        startCamera('');
+                    } else {
+                        alert("Could not access the webcam.");
+                    }
+                });
+        }
+
+        cameraSelect.addEventListener('change', () => {
+            startCamera(cameraSelect.value);
+            updateURL();
+        });
+
+        // Request initial webcam access
+        startCamera(urlParams.get('camera') || '');
 
         snapBtn.addEventListener('click', () => {
             snapBtn.disabled = true;
