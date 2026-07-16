@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Booth</title>
-    <script src="https://appstatic.jeeliz.com/faceFilter/jeelizFaceFilter.js"></script>
+    <script src="vendor/jeeliz/jeelizFaceFilter.js"></script>
     <style>
         body {
             font-family: sans-serif;
@@ -502,7 +502,7 @@
                 if (!isJeelizInitialized) {
                     JEELIZFACEFILTER.init({
                         canvasId: 'jeeliz-canvas',
-                        NNCPath: 'https://appstatic.jeeliz.com/faceFilter/',
+                        NNCPath: 'vendor/jeeliz/',
                         videoSettings: { videoElement: video },
                         callbackReady: function(errCode) {
                             if (errCode) {
@@ -523,15 +523,18 @@
                                 const mouthY = y + faceWidth * 0.15;
                                 const mouthRadius = faceWidth * 0.25;
 
+                                const scaleX = video.videoWidth / bigMouthCanvas.width;
+                                const scaleY = video.videoHeight / bigMouthCanvas.height;
+
                                 bigMouthCtx.save();
                                 bigMouthCtx.beginPath();
                                 bigMouthCtx.arc(mouthX, mouthY, mouthRadius * 1.5, 0, 2 * Math.PI);
                                 bigMouthCtx.clip();
 
-                                const sx = mouthX - mouthRadius;
-                                const sy = mouthY - mouthRadius;
-                                const sw = mouthRadius * 2;
-                                const sh = mouthRadius * 2;
+                                const sx = (mouthX - mouthRadius) * scaleX;
+                                const sy = (mouthY - mouthRadius) * scaleY;
+                                const sw = mouthRadius * 2 * scaleX;
+                                const sh = mouthRadius * 2 * scaleY;
 
                                 const dx = mouthX - mouthRadius * 1.5;
                                 const dy = mouthY - mouthRadius * 1.5;
