@@ -1,5 +1,5 @@
 # free-photobooth-app
-A free photo booth website. Live [here](https://github.com/JohnathonNow/free-photobooth-app/settings/pages), it can also be downloaded and used offline.
+A free photo booth website. Live [here](https://johnathonnow.github.io/free-photobooth-app/), it can also be downloaded and used offline.
 
 It currently offers a fixed 5 second countdown, and then saves and prints the photo.
 
