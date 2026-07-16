@@ -174,6 +174,13 @@
             </select>
         </div>
         <div class="config-item">
+            <label for="mirror-select">Mirror:</label>
+            <select id="mirror-select">
+                <option value="false" selected>Off</option>
+                <option value="true">On</option>
+            </select>
+        </div>
+        <div class="config-item">
             <button id="hide-btn">Hide Settings</button>
         </div>
     </div>
@@ -193,6 +200,7 @@
         const context = canvas.getContext('2d');
         const printFrame = document.getElementById('print-frame');
         const filterSelect = document.getElementById('filter-select');
+        const mirrorSelect = document.getElementById('mirror-select');
 
         // Overlay Editor elements
         const overlayBtn = document.getElementById('overlay-btn');
@@ -233,6 +241,14 @@
             if (Array.from(filterSelect.options).some(opt => opt.value === filterVal)) {
                 filterSelect.value = filterVal;
                 video.style.filter = filterVal;
+            }
+        }
+
+        if (urlParams.has('mirror')) {
+            const mirrorVal = urlParams.get('mirror');
+            if (mirrorVal === 'true') {
+                mirrorSelect.value = 'true';
+                video.style.transform = 'scaleX(-1)';
             }
         }
 
@@ -343,6 +359,7 @@
             currentParams.set('action', actionSelect.value);
             currentParams.set('timer', timerSelect.value);
             currentParams.set('filter', filterSelect.value);
+            currentParams.set('mirror', mirrorSelect.value);
             currentParams.set('borderStyle', borderStyleEl.value);
             currentParams.set('borderWidth', borderWidthEl.value);
             currentParams.set('borderColor', borderColorEl.value);
@@ -490,6 +507,14 @@
             video.style.filter = filterSelect.value;
             updateURL();
         });
+        mirrorSelect.addEventListener('change', () => {
+            if (mirrorSelect.value === 'true') {
+                video.style.transform = 'scaleX(-1)';
+            } else {
+                video.style.transform = 'none';
+            }
+            updateURL();
+        });
 
         // Request webcam access
         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
@@ -527,7 +552,18 @@
         function takePhoto() {
             // Draw video frame to canvas
             context.filter = filterSelect.value;
+
+            if (mirrorSelect.value === 'true') {
+                context.translate(canvas.width, 0);
+                context.scale(-1, 1);
+            }
+
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            if (mirrorSelect.value === 'true') {
+                context.setTransform(1, 0, 0, 1, 0, 0);
+            }
+
             context.filter = 'none'; // reset filter before drawing overlay
 
             // Draw overlay to main canvas
