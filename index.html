@@ -83,7 +83,9 @@
             position: absolute;
             top: 0;
             left: 0;
-            pointer-events: none;
+            /* /* pointer-events: none; removed to allow dragging */
+            cursor: default; removed to allow dragging */
+            cursor: default;
             z-index: 5;
         }
         select {
@@ -116,48 +118,26 @@
             <input type="file" id="overlay-frame" accept="image/*">
         </div>
         <div class="config-item">
-            <label for="overlay-text">Text:</label>
-            <input type="text" id="overlay-text" placeholder="Enter text">
-        </div>
-        <div class="config-item">
-            <label for="overlay-font">Font:</label>
-            <select id="overlay-font">
-                <option value="sans-serif">Sans-Serif</option>
-                <option value="serif">Serif</option>
-                <option value="monospace">Monospace</option>
-                <option value="Impact">Impact</option>
-                <option value="Comic Sans MS">Comic Sans</option>
+            <label for="border-style">Border Style:</label>
+            <select id="border-style">
+                <option value="none">None</option>
+                <option value="solid">Solid</option>
+                <option value="dashed">Dashed</option>
+                <option value="dotted">Dotted</option>
             </select>
         </div>
         <div class="config-item">
-            <label for="overlay-style">Style:</label>
-            <select id="overlay-style">
-                <option value="normal">Normal</option>
-                <option value="bold">Bold</option>
-                <option value="italic">Italic</option>
-                <option value="italic bold">Bold Italic</option>
-            </select>
+            <label for="border-width">Border Width:</label>
+            <input type="number" id="border-width" value="10" min="0" max="100">
         </div>
         <div class="config-item">
-            <label for="overlay-size">Size:</label>
-            <input type="number" id="overlay-size" value="48" min="10" max="200">
+            <label for="border-color">Border Color:</label>
+            <input type="color" id="border-color" value="#ffffff">
         </div>
         <div class="config-item">
-            <label for="overlay-fill">Fill Color:</label>
-            <input type="color" id="overlay-fill" value="#ffffff">
+            <button id="add-text-btn">Add Text</button>
         </div>
-        <div class="config-item">
-            <label for="overlay-outline">Outline Color:</label>
-            <input type="color" id="overlay-outline" value="#000000">
-        </div>
-        <div class="config-item">
-            <label for="overlay-x">X Position:</label>
-            <input type="number" id="overlay-x" value="320">
-        </div>
-        <div class="config-item">
-            <label for="overlay-y">Y Position:</label>
-            <input type="number" id="overlay-y" value="400">
-        </div>
+        <div id="texts-container" style="display: flex; flex-direction: column; gap: 10px;"></div>
         <div class="config-item">
             <button id="hide-overlay-btn">Hide Overlay Editor</button>
         </div>
@@ -221,14 +201,14 @@
         const overlayCanvas = document.getElementById('overlay-canvas');
         const overlayContext = overlayCanvas.getContext('2d');
         const overlayFrame = document.getElementById('overlay-frame');
-        const overlayText = document.getElementById('overlay-text');
-        const overlayFont = document.getElementById('overlay-font');
-        const overlayStyle = document.getElementById('overlay-style');
-        const overlaySize = document.getElementById('overlay-size');
-        const overlayFill = document.getElementById('overlay-fill');
-        const overlayOutline = document.getElementById('overlay-outline');
-        const overlayX = document.getElementById('overlay-x');
-        const overlayY = document.getElementById('overlay-y');
+        const addTextBtn = document.getElementById('add-text-btn');
+        const textsContainer = document.getElementById('texts-container');
+        const borderStyleEl = document.getElementById('border-style');
+        const borderWidthEl = document.getElementById('border-width');
+        const borderColorEl = document.getElementById('border-color');
+
+        let texts = [];
+        let draggingTextIndex = -1;
 
         let frameImage = null;
         // Parse query parameters
@@ -256,11 +236,117 @@
             }
         }
 
+        if (urlParams.has('texts')) {
+            try {
+                texts = JSON.parse(urlParams.get('texts'));
+            } catch (e) { console.error('Failed to parse texts from URL', e); }
+        } else {
+            // Default text if nothing in URL
+            texts = [{
+                id: Date.now(),
+                text: '',
+                font: 'sans-serif',
+                style: 'normal',
+                size: 48,
+                fill: '#ffffff',
+                outline: '#000000',
+                x: 320,
+                y: 400
+            }];
+        }
+
+        if (urlParams.has('borderStyle')) borderStyleEl.value = urlParams.get('borderStyle');
+        if (urlParams.has('borderWidth')) borderWidthEl.value = urlParams.get('borderWidth');
+        if (urlParams.has('borderColor')) borderColorEl.value = urlParams.get('borderColor');
+
+        function renderTextConfigs() {
+            textsContainer.innerHTML = '';
+            texts.forEach((t, i) => {
+                const item = document.createElement('div');
+                item.style.border = '1px solid #ccc';
+                item.style.padding = '10px';
+                item.style.borderRadius = '5px';
+                item.style.position = 'relative';
+
+
+                const escapeHTML = str => String(str).replace(/[&<>'"]/g,
+                    tag => ({
+                        '&': '&amp;',
+                        '<': '&lt;',
+                        '>': '&gt;',
+                        "'": '&#39;',
+                        '"': '&quot;'
+                    }[tag] || tag)
+                );
+
+                item.innerHTML = `
+                    <button type="button" style="position: absolute; top: 5px; right: 5px; padding: 2px 5px; font-size: 12px; background: red;" onclick="removeText(${i})">X</button>
+                    <div style="margin-bottom: 5px;"><label>Text:</label><input type="text" value="${escapeHTML(t.text)}" onchange="updateTextVal(${i}, 'text', this.value)" style="width: 100%;"></div>
+                    <div style="display: flex; gap: 5px; margin-bottom: 5px;">
+                        <select onchange="updateTextVal(${i}, 'font', this.value)">
+                            <option value="sans-serif" ${t.font === 'sans-serif' ? 'selected' : ''}>Sans-Serif</option>
+                            <option value="serif" ${t.font === 'serif' ? 'selected' : ''}>Serif</option>
+                            <option value="monospace" ${t.font === 'monospace' ? 'selected' : ''}>Monospace</option>
+                            <option value="Impact" ${t.font === 'Impact' ? 'selected' : ''}>Impact</option>
+                            <option value="Comic Sans MS" ${t.font === 'Comic Sans MS' ? 'selected' : ''}>Comic Sans</option>
+                        </select>
+                        <select onchange="updateTextVal(${i}, 'style', this.value)">
+                            <option value="normal" ${t.style === 'normal' ? 'selected' : ''}>Normal</option>
+                            <option value="bold" ${t.style === 'bold' ? 'selected' : ''}>Bold</option>
+                            <option value="italic" ${t.style === 'italic' ? 'selected' : ''}>Italic</option>
+                            <option value="italic bold" ${t.style === 'italic bold' ? 'selected' : ''}>Bold Italic</option>
+                        </select>
+                        <input type="number" value="${escapeHTML(t.size)}" min="10" max="200" onchange="updateTextVal(${i}, 'size', this.value)" style="width: 60px;">
+                    </div>
+                    <div style="display: flex; gap: 5px;">
+                        <label>Fill:</label><input type="color" value="${escapeHTML(t.fill)}" onchange="updateTextVal(${i}, 'fill', this.value)">
+                        <label>Outline:</label><input type="color" value="${escapeHTML(t.outline)}" onchange="updateTextVal(${i}, 'outline', this.value)">
+                    </div>
+                `;
+                textsContainer.appendChild(item);
+            });
+        }
+
+        window.removeText = function(index) {
+            texts.splice(index, 1);
+            renderTextConfigs();
+            updateOverlay();
+            updateURL();
+        };
+
+        window.updateTextVal = function(index, key, val) {
+            texts[index][key] = val;
+            updateOverlay();
+            updateURL();
+        };
+
+        addTextBtn.addEventListener('click', () => {
+            texts.push({
+                id: Date.now(),
+                text: 'New Text',
+                font: 'sans-serif',
+                style: 'normal',
+                size: 48,
+                fill: '#ffffff',
+                outline: '#000000',
+                x: 320,
+                y: 240
+            });
+            renderTextConfigs();
+            updateOverlay();
+            updateURL();
+        });
+
+
         function updateURL() {
             const currentParams = new URLSearchParams(window.location.search);
             currentParams.set('action', actionSelect.value);
             currentParams.set('timer', timerSelect.value);
             currentParams.set('filter', filterSelect.value);
+            currentParams.set('borderStyle', borderStyleEl.value);
+            currentParams.set('borderWidth', borderWidthEl.value);
+            currentParams.set('borderColor', borderColorEl.value);
+            currentParams.set('texts', JSON.stringify(texts));
 
             const newUrl = `${window.location.pathname}?${currentParams.toString()}`;
             window.history.replaceState({}, '', newUrl);
@@ -301,25 +387,36 @@
                 overlayContext.drawImage(frameImage, 0, 0, overlayCanvas.width, overlayCanvas.height);
             }
 
-            const text = overlayText.value;
-            if (text) {
-                const style = overlayStyle.value === 'normal' ? '' : overlayStyle.value;
-                const size = overlaySize.value + 'px';
-                const font = overlayFont.value;
+            const bStyle = borderStyleEl.value;
+            const bWidth = parseInt(borderWidthEl.value, 10);
+            if (bStyle !== 'none' && bWidth > 0) {
+                overlayContext.lineWidth = bWidth;
+                overlayContext.strokeStyle = borderColorEl.value;
+                if (bStyle === 'dashed') overlayContext.setLineDash([bWidth * 2, bWidth]);
+                else if (bStyle === 'dotted') overlayContext.setLineDash([bWidth, bWidth]);
+                else overlayContext.setLineDash([]);
 
-                overlayContext.font = `${style} ${size} ${font}`.trim();
-                overlayContext.textAlign = 'center';
-
-                const x = parseInt(overlayX.value, 10);
-                const y = parseInt(overlayY.value, 10);
-
-                overlayContext.fillStyle = overlayFill.value;
-                overlayContext.fillText(text, x, y);
-
-                overlayContext.lineWidth = 2;
-                overlayContext.strokeStyle = overlayOutline.value;
-                overlayContext.strokeText(text, x, y);
+                overlayContext.strokeRect(bWidth / 2, bWidth / 2, overlayCanvas.width - bWidth, overlayCanvas.height - bWidth);
+                overlayContext.setLineDash([]); // Reset
             }
+
+            texts.forEach(t => {
+                if (t.text) {
+                    const style = t.style === 'normal' ? '' : t.style;
+                    const size = t.size + 'px';
+                    const font = t.font;
+
+                    overlayContext.font = `${style} ${size} ${font}`.trim();
+                    overlayContext.textAlign = 'center';
+
+                    overlayContext.fillStyle = t.fill;
+                    overlayContext.fillText(t.text, t.x, t.y);
+
+                    overlayContext.lineWidth = 2;
+                    overlayContext.strokeStyle = t.outline;
+                    overlayContext.strokeText(t.text, t.x, t.y);
+                }
+            });
         }
 
         overlayFrame.addEventListener('change', (e) => {
@@ -341,9 +438,51 @@
             }
         });
 
-        [overlayText, overlayFont, overlayStyle, overlaySize, overlayFill, overlayOutline, overlayX, overlayY].forEach(el => {
-            el.addEventListener('input', updateOverlay);
+        [borderStyleEl, borderWidthEl, borderColorEl].forEach(el => {
+            el.addEventListener('input', () => { updateOverlay(); updateURL(); });
         });
+
+        overlayCanvas.addEventListener('mousedown', (e) => {
+            const rect = overlayCanvas.getBoundingClientRect();
+            // Need to account for potential scaling if the canvas isn't displayed at its native resolution
+            const scaleX = overlayCanvas.width / rect.width;
+            const scaleY = overlayCanvas.height / rect.height;
+            const mouseX = (e.clientX - rect.left) * scaleX;
+            const mouseY = (e.clientY - rect.top) * scaleY;
+
+            // Check if clicking near any text (very rudimentary hit detection)
+            draggingTextIndex = texts.findIndex(t => {
+                return Math.abs(t.x - mouseX) < 100 && Math.abs(t.y - mouseY) < 50;
+            });
+        });
+
+        overlayCanvas.addEventListener('mousemove', (e) => {
+            if (draggingTextIndex >= 0) {
+                const rect = overlayCanvas.getBoundingClientRect();
+                const scaleX = overlayCanvas.width / rect.width;
+                const scaleY = overlayCanvas.height / rect.height;
+                texts[draggingTextIndex].x = Math.round((e.clientX - rect.left) * scaleX);
+                texts[draggingTextIndex].y = Math.round((e.clientY - rect.top) * scaleY);
+                updateOverlay();
+            }
+        });
+
+        overlayCanvas.addEventListener('mouseup', () => {
+            if (draggingTextIndex >= 0) {
+                draggingTextIndex = -1;
+                updateURL();
+            }
+        });
+        overlayCanvas.addEventListener('mouseleave', () => {
+            if (draggingTextIndex >= 0) {
+                draggingTextIndex = -1;
+                updateURL();
+            }
+        });
+
+        // Initialize UI
+        renderTextConfigs();
+        setTimeout(updateOverlay, 100);
 
         actionSelect.addEventListener('change', updateURL);
         timerSelect.addEventListener('change', updateURL);
