@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Photo Booth</title>
+    <script src="https://appstatic.jeeliz.com/faceFilter/jeelizFaceFilter.js"></script>
     <style>
         body {
             font-family: sans-serif;
@@ -102,6 +103,8 @@
 
     <div id="video-container">
         <video id="video" width="640" height="480" autoplay playsinline></video>
+        <canvas id="jeeliz-canvas" width="640" height="480" style="display: none;"></canvas>
+        <canvas id="big-mouth-canvas" width="640" height="480" style="position: absolute; left: 0; top: 0; pointer-events: none; z-index: 4;"></canvas>
         <canvas id="overlay-canvas" width="640" height="480"></canvas>
         <div id="countdown"></div>
     </div>
@@ -171,6 +174,7 @@
                 <option value="invert(100%)">Invert</option>
                 <option value="hue-rotate(90deg)">Hue Rotate</option>
                 <option value="contrast(200%)">High Contrast</option>
+                <option value="jeeliz-big-mouth">Big Mouth</option>
             </select>
         </div>
         <div class="config-item">
@@ -193,6 +197,12 @@
         const context = canvas.getContext('2d');
         const printFrame = document.getElementById('print-frame');
         const filterSelect = document.getElementById('filter-select');
+
+        // Jeeliz Big Mouth elements
+        const bigMouthCanvas = document.getElementById('big-mouth-canvas');
+        const bigMouthCtx = bigMouthCanvas.getContext('2d');
+        let isJeelizInitialized = false;
+        let isJeelizRunning = false;
 
         // Overlay Editor elements
         const overlayBtn = document.getElementById('overlay-btn');
@@ -232,7 +242,9 @@
             const filterVal = urlParams.get('filter');
             if (Array.from(filterSelect.options).some(opt => opt.value === filterVal)) {
                 filterSelect.value = filterVal;
-                video.style.filter = filterVal;
+                if (filterVal !== 'jeeliz-big-mouth') {
+                    video.style.filter = filterVal;
+                }
             }
         }
 
@@ -484,10 +496,75 @@
         renderTextConfigs();
         setTimeout(updateOverlay, 100);
 
+        function toggleJeeliz() {
+            if (filterSelect.value === 'jeeliz-big-mouth') {
+                video.style.filter = 'none';
+                if (!isJeelizInitialized) {
+                    JEELIZFACEFILTER.init({
+                        canvasId: 'jeeliz-canvas',
+                        NNCPath: 'https://appstatic.jeeliz.com/faceFilter/',
+                        videoSettings: { videoElement: video },
+                        callbackReady: function(errCode) {
+                            if (errCode) {
+                                console.error('Jeeliz init error:', errCode);
+                                return;
+                            }
+                            isJeelizInitialized = true;
+                            isJeelizRunning = true;
+                        },
+                        callbackTrack: function(detectState) {
+                            bigMouthCtx.clearRect(0, 0, bigMouthCanvas.width, bigMouthCanvas.height);
+                            if (isJeelizRunning && detectState.detected > 0.6) {
+                                const x = (detectState.x * 0.5 + 0.5) * bigMouthCanvas.width;
+                                const y = (0.5 - detectState.y * 0.5) * bigMouthCanvas.height;
+                                const faceWidth = detectState.s * bigMouthCanvas.width;
+
+                                const mouthX = x;
+                                const mouthY = y + faceWidth * 0.15;
+                                const mouthRadius = faceWidth * 0.25;
+
+                                bigMouthCtx.save();
+                                bigMouthCtx.beginPath();
+                                bigMouthCtx.arc(mouthX, mouthY, mouthRadius * 1.5, 0, 2 * Math.PI);
+                                bigMouthCtx.clip();
+
+                                const sx = mouthX - mouthRadius;
+                                const sy = mouthY - mouthRadius;
+                                const sw = mouthRadius * 2;
+                                const sh = mouthRadius * 2;
+
+                                const dx = mouthX - mouthRadius * 1.5;
+                                const dy = mouthY - mouthRadius * 1.5;
+                                const dw = mouthRadius * 3;
+                                const dh = mouthRadius * 3;
+
+                                bigMouthCtx.drawImage(video, sx, sy, sw, sh, dx, dy, dw, dh);
+                                bigMouthCtx.restore();
+                            }
+                        }
+                    });
+                } else if (!isJeelizRunning) {
+                    JEELIZFACEFILTER.toggle_pause(false);
+                    isJeelizRunning = true;
+                }
+            } else {
+                if (filterSelect.value !== 'none') {
+                    video.style.filter = filterSelect.value;
+                } else {
+                    video.style.filter = 'none';
+                }
+                if (isJeelizInitialized && isJeelizRunning) {
+                    JEELIZFACEFILTER.toggle_pause(true);
+                    isJeelizRunning = false;
+                    bigMouthCtx.clearRect(0, 0, bigMouthCanvas.width, bigMouthCanvas.height);
+                }
+            }
+        }
+
         actionSelect.addEventListener('change', updateURL);
         timerSelect.addEventListener('change', updateURL);
         filterSelect.addEventListener('change', () => {
-            video.style.filter = filterSelect.value;
+            toggleJeeliz();
             updateURL();
         });
 
@@ -495,6 +572,11 @@
         navigator.mediaDevices.getUserMedia({ video: true, audio: false })
             .then(stream => {
                 video.srcObject = stream;
+                video.onloadeddata = () => {
+                    if (filterSelect.value === 'jeeliz-big-mouth') {
+                        toggleJeeliz();
+                    }
+                };
             })
             .catch(err => {
                 console.error("Error accessing webcam:", err);
@@ -526,9 +608,18 @@
 
         function takePhoto() {
             // Draw video frame to canvas
-            context.filter = filterSelect.value;
+            if (filterSelect.value !== 'jeeliz-big-mouth' && filterSelect.value !== 'none') {
+                context.filter = filterSelect.value;
+            } else {
+                context.filter = 'none';
+            }
             context.drawImage(video, 0, 0, canvas.width, canvas.height);
             context.filter = 'none'; // reset filter before drawing overlay
+
+            // Draw big mouth canvas if applicable
+            if (filterSelect.value === 'jeeliz-big-mouth') {
+                context.drawImage(bigMouthCanvas, 0, 0, canvas.width, canvas.height);
+            }
 
             // Draw overlay to main canvas
             context.drawImage(overlayCanvas, 0, 0, canvas.width, canvas.height);
