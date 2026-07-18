@@ -6,21 +6,32 @@
     <title>Photo Booth</title>
     <style>
         body {
-            font-family: sans-serif;
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #f0f0f0;
+            background: linear-gradient(135deg, #f5f7fa 0%, #e4e8eb 100%);
+            min-height: 100vh;
+            margin: 0;
             padding: 20px;
+            color: #333;
+        }
+        h1 {
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #2c3e50;
         }
         #video-container {
-            border: 5px solid #fff;
+            border: 8px solid #fff;
+            border-radius: 16px;
             position: relative;
-            margin-bottom: 20px;
+            margin-bottom: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            background-color: #fff;
         }
         video {
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            display: block;
             background-color: #000;
         }
         #countdown {
@@ -28,28 +39,48 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            font-size: 80px;
+            font-size: 100px;
+            font-weight: bold;
             color: white;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+            text-shadow: 0 4px 12px rgba(0,0,0,0.5);
             display: none;
             z-index: 10;
         }
         button {
-            padding: 15px 30px;
-            font-size: 18px;
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: 500;
             cursor: pointer;
-            background-color: #007bff;
+            background-color: #3498db;
             color: white;
             border: none;
-            border-radius: 5px;
-            transition: background-color 0.3s;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(52, 152, 219, 0.2);
+            transition: all 0.2s ease-in-out;
         }
         button:hover {
-            background-color: #0056b3;
+            background-color: #2980b9;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 12px rgba(52, 152, 219, 0.3);
+        }
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(52, 152, 219, 0.2);
         }
         button:disabled {
-            background-color: #ccc;
+            background-color: #bdc3c7;
+            box-shadow: none;
             cursor: not-allowed;
+            transform: none;
+        }
+        #snap-btn {
+            background-color: #2ecc71;
+            box-shadow: 0 4px 6px rgba(46, 204, 113, 0.2);
+            font-weight: 600;
+        }
+        #snap-btn:hover {
+            background-color: #27ae60;
+            box-shadow: 0 6px 12px rgba(46, 204, 113, 0.3);
         }
         #canvas {
             display: none;
@@ -59,40 +90,60 @@
         }
         #controls {
             display: flex;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 24px;
         }
         .menu-panel {
             display: none;
             flex-direction: column;
-            gap: 10px;
-            margin-bottom: 20px;
+            gap: 16px;
+            margin-bottom: 24px;
             background: #fff;
-            padding: 15px;
-            border-radius: 8px;
-            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.08);
+            width: 100%;
+            max-width: 500px;
+            box-sizing: border-box;
         }
         .config-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            gap: 10px;
-            font-size: 18px;
+            gap: 16px;
+            font-size: 16px;
+        }
+        .config-item label {
+            font-weight: 500;
         }
         #overlay-canvas {
             position: absolute;
             top: 0;
             left: 0;
-            /* /* pointer-events: none; removed to allow dragging */
-            cursor: default; removed to allow dragging */
+            /* pointer-events: none; removed to allow dragging */
             cursor: default;
             z-index: 5;
         }
-        select {
-            padding: 15px;
-            font-size: 18px;
-            border-radius: 5px;
-            border: 1px solid #ccc;
+        input, select {
+            padding: 10px 14px;
+            font-size: 15px;
+            font-family: inherit;
+            border-radius: 6px;
+            border: 1px solid #dcdde1;
+            background-color: #f8f9fa;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        input:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+            box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.1);
+            background-color: #fff;
+        }
+        input[type="color"] {
+            padding: 2px;
+            height: 38px;
+            width: 50px;
+            cursor: pointer;
         }
     </style>
 </head>
