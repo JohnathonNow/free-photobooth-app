@@ -145,6 +145,43 @@
             width: 50px;
             cursor: pointer;
         }
+        #preview-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #000;
+            z-index: 20;
+        }
+        #preview-image {
+            max-width: 100%;
+            max-height: calc(100% - 60px);
+            object-fit: contain;
+        }
+        #preview-controls {
+            display: flex;
+            gap: 16px;
+            margin-top: 10px;
+        }
+        #retake-btn {
+            background-color: #e74c3c;
+        }
+        #retake-btn:hover {
+            background-color: #c0392b;
+            box-shadow: 0 6px 12px rgba(231, 76, 60, 0.3);
+        }
+        #accept-btn {
+            background-color: #2ecc71;
+        }
+        #accept-btn:hover {
+            background-color: #27ae60;
+            box-shadow: 0 6px 12px rgba(46, 204, 113, 0.3);
+        }
     </style>
 </head>
 <body>
@@ -155,6 +192,13 @@
         <video id="video" width="640" height="480" autoplay playsinline></video>
         <canvas id="overlay-canvas" width="640" height="480"></canvas>
         <div id="countdown"></div>
+        <div id="preview-container">
+            <img id="preview-image" src="" alt="Preview">
+            <div id="preview-controls">
+                <button id="retake-btn">Retake</button>
+                <button id="accept-btn">Accept</button>
+            </div>
+        </div>
     </div>
 
     <div id="controls">
@@ -238,6 +282,13 @@
             </select>
         </div>
         <div class="config-item">
+            <label for="review-select">Review Photo:</label>
+            <select id="review-select">
+                <option value="false" selected>Off</option>
+                <option value="true">On</option>
+            </select>
+        </div>
+        <div class="config-item">
             <button id="hide-btn">Hide Settings</button>
         </div>
     </div>
@@ -259,6 +310,12 @@
         const printFrame = document.getElementById('print-frame');
         const filterSelect = document.getElementById('filter-select');
         const mirrorSelect = document.getElementById('mirror-select');
+        const reviewSelect = document.getElementById('review-select');
+
+        const previewContainer = document.getElementById('preview-container');
+        const previewImage = document.getElementById('preview-image');
+        const retakeBtn = document.getElementById('retake-btn');
+        const acceptBtn = document.getElementById('accept-btn');
 
         // Overlay Editor elements
         const overlayBtn = document.getElementById('overlay-btn');
@@ -312,6 +369,13 @@
             if (mirrorVal === 'true') {
                 mirrorSelect.value = 'true';
                 video.style.transform = 'scaleX(-1)';
+            }
+        }
+
+        if (urlParams.has('review')) {
+            const reviewVal = urlParams.get('review');
+            if (reviewVal === 'true') {
+                reviewSelect.value = 'true';
             }
         }
 
@@ -428,6 +492,7 @@
             currentParams.set('timer', timerSelect.value);
             currentParams.set('filter', filterSelect.value);
             currentParams.set('mirror', mirrorSelect.value);
+            currentParams.set('review', reviewSelect.value);
             currentParams.set('borderStyle', borderStyleEl.value);
             currentParams.set('borderWidth', borderWidthEl.value);
             currentParams.set('borderColor', borderColorEl.value);
@@ -583,6 +648,7 @@
             }
             updateURL();
         });
+        reviewSelect.addEventListener('change', updateURL);
 
         let currentStream = null;
 
@@ -691,6 +757,29 @@
 
             // Get image data URL
             const dataUrl = canvas.toDataURL('image/png');
+
+            if (reviewSelect.value === 'true') {
+                previewImage.src = dataUrl;
+                previewContainer.style.display = 'flex';
+                // Snap button stays disabled until reviewed
+            } else {
+                finalizePhoto(dataUrl);
+                snapBtn.disabled = false;
+            }
+        }
+
+        retakeBtn.addEventListener('click', () => {
+            previewContainer.style.display = 'none';
+            snapBtn.disabled = false;
+        });
+
+        acceptBtn.addEventListener('click', () => {
+            previewContainer.style.display = 'none';
+            finalizePhoto(previewImage.src);
+            snapBtn.disabled = false;
+        });
+
+        function finalizePhoto(dataUrl) {
             const action = actionSelect.value;
 
             // 1. Save the image
@@ -707,9 +796,6 @@
             if (action === 'save-print' || action === 'print-only') {
                 printImage(dataUrl);
             }
-
-            // Re-enable button
-            snapBtn.disabled = false;
         }
 
         function printImage(dataUrl) {
