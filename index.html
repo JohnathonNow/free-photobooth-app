@@ -832,7 +832,7 @@
         // Request initial webcam access
         startCamera(urlParams.get('camera') || '');
 
-        snapBtn.addEventListener('click', () => {
+        function snap() {
             snapBtn.disabled = true;
             let counter = parseInt(timerSelect.value, 10);
             
@@ -852,6 +852,13 @@
                         takePhoto();
                     }
                 }, 1000);
+            }
+        }
+
+        snapBtn.addEventListener('click', snap);
+        document.addEventListener('keydown', (e) => {
+            if (event.code === 'Space') {
+                snap();
             }
         });
 
