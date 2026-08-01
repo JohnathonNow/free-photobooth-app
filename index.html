@@ -116,6 +116,13 @@
         .config-item label {
             font-weight: 500;
         }
+        #bg-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            display: none;
+            z-index: 2;
+        }
         #overlay-canvas {
             position: absolute;
             top: 0;
@@ -190,6 +197,7 @@
 
     <div id="video-container">
         <video id="video" width="640" height="480" autoplay playsinline></video>
+        <canvas id="bg-canvas" width="640" height="480"></canvas>
         <canvas id="overlay-canvas" width="640" height="480"></canvas>
         <div id="countdown"></div>
         <div id="preview-container">
@@ -208,6 +216,11 @@
     </div>
 
     <div id="overlay-menu" class="menu-panel">
+        <div class="config-item">
+            <label for="bg-image-input">Virtual Background:</label>
+            <input type="file" id="bg-image-input" accept="image/*">
+            <button id="clear-bg-btn" style="padding: 6px 12px; font-size: 14px;">Clear</button>
+        </div>
         <div class="config-item">
             <label for="overlay-frame">Frame Image:</label>
             <input type="file" id="overlay-frame" accept="image/*">
@@ -295,6 +308,8 @@
     <canvas id="canvas" width="640" height="480"></canvas>
     <iframe id="print-frame" name="print-frame"></iframe>
 
+    <script src="vendor/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
+    <script src="vendor/@mediapipe/selfie_segmentation/selfie_segmentation.js" crossorigin="anonymous"></script>
     <script>
         const video = document.getElementById('video');
         const snapBtn = document.getElementById('snap-btn');
@@ -324,6 +339,10 @@
         const overlayCanvas = document.getElementById('overlay-canvas');
         const overlayContext = overlayCanvas.getContext('2d');
         const overlayFrame = document.getElementById('overlay-frame');
+        const bgImageInput = document.getElementById('bg-image-input');
+        const clearBgBtn = document.getElementById('clear-bg-btn');
+        const bgCanvas = document.getElementById('bg-canvas');
+        const bgContext = bgCanvas.getContext('2d');
         const addTextBtn = document.getElementById('add-text-btn');
         const textsContainer = document.getElementById('texts-container');
         const borderStyleEl = document.getElementById('border-style');
@@ -361,6 +380,7 @@
             if (Array.from(filterSelect.options).some(opt => opt.value === filterVal)) {
                 filterSelect.value = filterVal;
                 video.style.filter = filterVal;
+                if (typeof bgCanvas !== 'undefined') bgCanvas.style.filter = filterVal;
             }
         }
 
@@ -369,6 +389,7 @@
             if (mirrorVal === 'true') {
                 mirrorSelect.value = 'true';
                 video.style.transform = 'scaleX(-1)';
+                if (typeof bgCanvas !== 'undefined') bgCanvas.style.transform = 'scaleX(-1)';
             }
         }
 
@@ -638,19 +659,109 @@
         timerSelect.addEventListener('change', updateURL);
         filterSelect.addEventListener('change', () => {
             video.style.filter = filterSelect.value;
+            bgCanvas.style.filter = filterSelect.value;
             updateURL();
         });
         mirrorSelect.addEventListener('change', () => {
             if (mirrorSelect.value === 'true') {
                 video.style.transform = 'scaleX(-1)';
+                bgCanvas.style.transform = 'scaleX(-1)';
             } else {
                 video.style.transform = 'none';
+                bgCanvas.style.transform = 'none';
             }
             updateURL();
         });
         reviewSelect.addEventListener('change', updateURL);
 
         let currentStream = null;
+
+        // Virtual Background state and setup
+        let virtualBackgroundImage = null;
+        let selfieSegmentation = null;
+        let camera = null;
+        let isVirtualBgActive = false;
+
+        function initVirtualBackground() {
+            if (!selfieSegmentation) {
+                selfieSegmentation = new SelfieSegmentation({locateFile: (file) => {
+                    return `vendor/@mediapipe/selfie_segmentation/${file}`;
+                }});
+                selfieSegmentation.setOptions({
+                    modelSelection: 1,
+                });
+                selfieSegmentation.onResults(onResults);
+            }
+        }
+
+        function onResults(results) {
+            bgContext.save();
+            bgContext.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            if (virtualBackgroundImage) {
+                // Draw background first, but only outside the segmentation mask
+                bgContext.drawImage(virtualBackgroundImage, 0, 0, bgCanvas.width, bgCanvas.height);
+
+                // Setup globalCompositeOperation to only draw the video where the segmentation mask is not present
+                // Segmentation mask is black for background, white for person.
+
+                // Draw mask as destination-in to keep only the person from the following video frame
+                bgContext.globalCompositeOperation = 'destination-out';
+                bgContext.drawImage(results.segmentationMask, 0, 0, bgCanvas.width, bgCanvas.height);
+
+                // Draw the video frame where the mask allows
+                bgContext.globalCompositeOperation = 'destination-over';
+                bgContext.drawImage(results.image, 0, 0, bgCanvas.width, bgCanvas.height);
+            }
+
+            bgContext.restore();
+        }
+
+        let bgAnimationId = null;
+
+        async function processVirtualBgFrame() {
+            if (isVirtualBgActive && video.readyState >= 2 && !video.paused) {
+                await selfieSegmentation.send({image: video});
+            }
+            if (isVirtualBgActive) {
+                bgAnimationId = requestAnimationFrame(processVirtualBgFrame);
+            }
+        }
+
+        bgImageInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        virtualBackgroundImage = img;
+                        isVirtualBgActive = true;
+                        initVirtualBackground();
+
+                        if (!bgAnimationId) {
+                            processVirtualBgFrame();
+                        }
+
+                        bgCanvas.style.display = 'block';
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        clearBgBtn.addEventListener('click', () => {
+            virtualBackgroundImage = null;
+            isVirtualBgActive = false;
+            bgImageInput.value = '';
+            bgCanvas.style.display = 'none';
+            if (bgAnimationId) {
+                cancelAnimationFrame(bgAnimationId);
+                bgAnimationId = null;
+            }
+            bgContext.clearRect(0, 0, bgCanvas.width, bgCanvas.height);
+        });
 
         function populateCameraList(selectedDeviceId) {
             navigator.mediaDevices.enumerateDevices().then(devices => {
@@ -744,7 +855,11 @@
                 context.scale(-1, 1);
             }
 
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            if (isVirtualBgActive && bgCanvas.style.display === 'block') {
+                context.drawImage(bgCanvas, 0, 0, canvas.width, canvas.height);
+            } else {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            }
 
             if (mirrorSelect.value === 'true') {
                 context.setTransform(1, 0, 0, 1, 0, 0);
