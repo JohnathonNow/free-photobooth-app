@@ -33,6 +33,9 @@
         video {
             display: block;
             background-color: #000;
+            width: 100%;
+            height: auto;
+            max-width: 900px;
         }
         #countdown {
             position: absolute;
@@ -122,6 +125,8 @@
             left: 0;
             display: none;
             z-index: 2;
+            width: 100%;
+            height: 100%;
         }
         #overlay-canvas {
             position: absolute;
@@ -130,6 +135,8 @@
             /* pointer-events: none; removed to allow dragging */
             cursor: default;
             z-index: 5;
+            width: 100%;
+            height: 100%;
         }
         input, select {
             padding: 10px 14px;
@@ -196,9 +203,9 @@
     <h1>Photo Booth</h1>
 
     <div id="video-container">
-        <video id="video" width="640" height="480" autoplay playsinline></video>
-        <canvas id="bg-canvas" width="640" height="480"></canvas>
-        <canvas id="overlay-canvas" width="640" height="480"></canvas>
+        <video id="video" width="1800" height="1200" autoplay playsinline></video>
+        <canvas id="bg-canvas" width="1800" height="1200"></canvas>
+        <canvas id="overlay-canvas" width="1800" height="1200"></canvas>
         <div id="countdown"></div>
         <div id="preview-container">
             <img id="preview-image" src="" alt="Preview">
@@ -236,7 +243,7 @@
         </div>
         <div class="config-item">
             <label for="border-width">Border Width:</label>
-            <input type="number" id="border-width" value="10" min="0" max="100">
+            <input type="number" id="border-width" value="30" min="0" max="300">
         </div>
         <div class="config-item">
             <label for="border-color">Border Color:</label>
@@ -305,7 +312,7 @@
             <button id="hide-btn">Hide Settings</button>
         </div>
     </div>
-    <canvas id="canvas" width="640" height="480"></canvas>
+    <canvas id="canvas" width="1800" height="1200"></canvas>
     <iframe id="print-frame" name="print-frame"></iframe>
 
     <script src="vendor/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
@@ -411,11 +418,11 @@
                 text: '',
                 font: 'sans-serif',
                 style: 'normal',
-                size: 48,
+                size: 135,
                 fill: '#ffffff',
                 outline: '#000000',
-                x: 320,
-                y: 400
+                x: 900,
+                y: 1000
             }];
         }
 
@@ -490,11 +497,11 @@
                 text: 'New Text',
                 font: 'sans-serif',
                 style: 'normal',
-                size: 48,
+                size: 135,
                 fill: '#ffffff',
                 outline: '#000000',
-                x: 320,
-                y: 240
+                x: 900,
+                y: 600
             });
             renderTextConfigs();
             updateOverlay();
@@ -623,7 +630,9 @@
 
             // Check if clicking near any text (very rudimentary hit detection)
             draggingTextIndex = texts.findIndex(t => {
-                return Math.abs(t.x - mouseX) < 100 && Math.abs(t.y - mouseY) < 50;
+                // Scale hit detection thresholds by the same scaling factor (or just increase them)
+                // 100 was for 640x480, so for 1800x1200 we can roughly triple it.
+                return Math.abs(t.x - mouseX) < 300 && Math.abs(t.y - mouseY) < 150;
             });
         });
 
@@ -792,7 +801,7 @@
             }
 
             const constraints = {
-                video: deviceId ? { deviceId: { exact: deviceId } } : true,
+                video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1800 }, height: { ideal: 1200 } } : { width: { ideal: 1800 }, height: { ideal: 1200 } },
                 audio: false
             };
 
