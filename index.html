@@ -226,7 +226,7 @@
         <div class="config-item">
             <label for="bg-image-input">Virtual Background:</label>
             <input type="file" id="bg-image-input" accept="image/*">
-            <button id="clear-bg-btn" style="padding: 6px 12px; font-size: 14px;">Clear</button>
+            <!-- <button id="clear-bg-btn" style="padding: 6px 12px; font-size: 14px;">Clear</button> -->
         </div>
         <div class="config-item">
             <label for="overlay-frame">Frame Image:</label>
@@ -859,6 +859,7 @@
         document.addEventListener('keydown', (e) => {
             if (event.code === 'Space') {
                 snap();
+                event.preventDefault();
             }
         });
 
